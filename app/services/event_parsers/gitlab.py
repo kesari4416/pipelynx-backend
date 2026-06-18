@@ -25,7 +25,7 @@ class GitLabEventParser(BaseEventParser):
     
     def can_parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> bool:
         object_kind = payload.get("object_kind", "")
-        return object_kind in ("pipeline", "build", "job")
+        return object_kind in ("pipeline", "build", "job", "push")
     
     def parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         object_kind = payload.get("object_kind", "")
@@ -33,6 +33,8 @@ class GitLabEventParser(BaseEventParser):
             return self._parse_pipeline(payload)
         if object_kind in ("build", "job"):
             return self._parse_job(payload)
+        if object_kind == "push":
+            return self._parse_push(payload)
         return None
     
     def _parse_pipeline(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -90,4 +92,47 @@ class GitLabEventParser(BaseEventParser):
             "completed_at": finished_at,
             "duration_seconds": payload.get("build_duration") or self.calculate_duration(started_at, finished_at),
             "metadata": {"event_type": "job"},
+        }
+
+    def _parse_push(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Parse a GitLab `push` event (object_kind=push) — one run per push."""
+        # Branch deletions report `after = 0000…` — ignore them.
+        after = payload.get("after", "")
+        if not after or set(after) == {"0"}:
+            return None
+
+        project = payload.get("project") or payload.get("repository") or {}
+        ref = payload.get("ref", "")
+        branch = ref.replace("refs/heads/", "") if ref.startswith("refs/heads/") else ref
+        commits = payload.get("commits") or []
+        head = commits[-1] if commits else {}
+        head_id = head.get("id") or after
+        author = head.get("author") or {}
+
+        started_at = self.parse_iso_datetime(head.get("timestamp"))
+        return {
+            "source": self.source,
+            "external_id": f"push:{head_id}",
+            "external_url": head.get("url"),
+            "name": f"push to {branch}" if branch else "push",
+            "repository": project.get("path_with_namespace") or project.get("name"),
+            "branch": branch,
+            "commit_sha": head_id,
+            "commit_message": head.get("message"),
+            "author": (
+                author.get("name")
+                or payload.get("user_username")
+                or payload.get("user_name")
+            ),
+            "trigger": "push",
+            "status": "success",
+            "conclusion": "success",
+            "started_at": started_at,
+            "completed_at": started_at,
+            "duration_seconds": 0,
+            "metadata": {
+                "ref": ref,
+                "commits_count": payload.get("total_commits_count") or len(commits),
+                "event_type": "push",
+            },
         }

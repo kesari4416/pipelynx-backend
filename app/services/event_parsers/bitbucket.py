@@ -28,13 +28,20 @@ class BitbucketEventParser(BaseEventParser):
     }
     
     def can_parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> bool:
-        # Bitbucket uses X-Event-Key header (e.g., "repo:push", "pullrequest:created")
-        # Pipeline events have 'pipeline' key in payload
-        if event_type and event_type.startswith("repo:") and "pipeline" in payload:
+        # Pipeline events have a `pipeline` key; raw pushes have `push.changes`.
+        if "pipeline" in payload and "repository" in payload:
             return True
-        return "pipeline" in payload and "repository" in payload
-    
+        if event_type == "repo:push" and "push" in payload:
+            return True
+        return False
+
     def parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        # Raw push (no pipeline ran) — capture as a synthetic run
+        if event_type == "repo:push" and "push" in payload and "pipeline" not in payload:
+            return self._parse_push(payload)
+        return self._parse_pipeline_event(payload)
+
+    def _parse_pipeline_event(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         pipeline = payload.get("pipeline", {})
         repository = payload.get("repository", {})
         if not pipeline:
@@ -79,5 +86,57 @@ class BitbucketEventParser(BaseEventParser):
             "metadata": {
                 "build_number": pipeline.get("build_number"),
                 "event_type": "pipeline",
+            },
+        }
+
+    def _parse_push(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Parse a Bitbucket `repo:push` event — one run per push."""
+        push = payload.get("push") or {}
+        changes = push.get("changes") or []
+        if not changes:
+            return None
+        # Use the most recent change (last entry)
+        change = changes[-1]
+        new = change.get("new") or {}
+        # Branch deletion → "new" is null
+        if not new:
+            return None
+        target = new.get("target") or {}
+        branch = new.get("name")
+        commit_sha = target.get("hash")
+        if not commit_sha:
+            return None
+
+        repository = payload.get("repository") or {}
+        actor = payload.get("actor") or {}
+        commit_author = (target.get("author") or {}).get("user") or {}
+
+        started_at = self.parse_iso_datetime(target.get("date"))
+        return {
+            "source": self.source,
+            "external_id": f"push:{commit_sha}",
+            "external_url": (target.get("links") or {}).get("html", {}).get("href"),
+            "name": f"push to {branch}" if branch else "push",
+            "repository": repository.get("full_name"),
+            "branch": branch,
+            "commit_sha": commit_sha,
+            "commit_message": target.get("message"),
+            "author": (
+                commit_author.get("nickname")
+                or commit_author.get("display_name")
+                or actor.get("nickname")
+                or actor.get("display_name")
+            ),
+            "trigger": "push",
+            "status": "success",
+            "conclusion": "success",
+            "started_at": started_at,
+            "completed_at": started_at,
+            "duration_seconds": 0,
+            "metadata": {
+                "ref_type": new.get("type"),
+                "forced": change.get("forced", False),
+                "commits_count": len(change.get("commits") or []),
+                "event_type": "push",
             },
         }

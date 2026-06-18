@@ -21,8 +21,8 @@ class GitHubEventParser(BaseEventParser):
     }
     
     def can_parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> bool:
-        """Only handle workflow_run and workflow_job events"""
-        return event_type in ("workflow_run", "workflow_job", "check_run")
+        """Handle workflow runs, jobs, check runs, and raw pushes."""
+        return event_type in ("workflow_run", "workflow_job", "check_run", "push")
     
     def parse(self, event_type: Optional[str], payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         if event_type == "workflow_run":
@@ -31,6 +31,8 @@ class GitHubEventParser(BaseEventParser):
             return self._parse_workflow_job(payload)
         if event_type == "check_run":
             return self._parse_check_run(payload)
+        if event_type == "push":
+            return self._parse_push(payload)
         return None
     
     def _parse_workflow_run(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -147,4 +149,56 @@ class GitHubEventParser(BaseEventParser):
             "completed_at": completed_at,
             "duration_seconds": self.calculate_duration(started_at, completed_at),
             "metadata": {"event_type": "check_run"},
+        }
+
+    def _parse_push(self, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Parse a raw `push` event — one PipelineRun per push that arrives.
+
+        Pushes are not pipelines themselves, but treating them as runs gives a
+        complete commit-by-commit timeline of activity, even when the repo has
+        no GitHub Actions workflows configured.
+        """
+        # Ignore branch / tag deletions (head_commit is null)
+        if payload.get("deleted"):
+            return None
+        head_commit = payload.get("head_commit") or {}
+        if not head_commit:
+            return None
+
+        repo = payload.get("repository", {})
+        pusher = payload.get("pusher") or {}
+        sender = payload.get("sender") or {}
+        ref = payload.get("ref", "")
+        branch = ref.replace("refs/heads/", "") if ref.startswith("refs/heads/") else ref
+
+        started_at = self.parse_iso_datetime(head_commit.get("timestamp"))
+        # A push is instantaneous — treat it as a 0-duration "success" entry.
+        return {
+            "source": self.source,
+            "external_id": f"push:{head_commit.get('id', '')}",
+            "external_url": payload.get("compare") or head_commit.get("url"),
+            "name": f"push to {branch}" if branch else "push",
+            "repository": repo.get("full_name"),
+            "branch": branch,
+            "commit_sha": head_commit.get("id"),
+            "commit_message": head_commit.get("message"),
+            "author": (
+                head_commit.get("author", {}).get("username")
+                or head_commit.get("author", {}).get("name")
+                or pusher.get("name")
+                or sender.get("login")
+            ),
+            "trigger": "push",
+            "status": "success",
+            "conclusion": "success",
+            "started_at": started_at,
+            "completed_at": started_at,
+            "duration_seconds": 0,
+            "metadata": {
+                "ref": ref,
+                "commits_count": len(payload.get("commits") or []),
+                "forced": payload.get("forced", False),
+                "event_type": "push",
+            },
         }
