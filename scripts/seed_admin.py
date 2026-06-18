@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -55,12 +56,13 @@ async def main() -> None:
     now_iso = datetime.now(timezone.utc).isoformat()
 
     # ── 1. Find or create the organization ────────────────────────────────
+    org_slug = re.sub(r"[^a-z0-9]+", "-", ORG_NAME.lower()).strip("-")
     existing_user = await db.users.find_one({"email": ADMIN_EMAIL})
     if existing_user:
         org_id = existing_user["organization_id"]
         org = await db.organizations.find_one({"id": org_id})
         if not org:
-            org_doc = Organization(name=ORG_NAME).model_dump()
+            org_doc = Organization(name=ORG_NAME, slug=org_slug).model_dump()
             org_doc["id"] = org_id
             await db.organizations.insert_one(org_doc)
         print(f"✓ Existing user found — org_id={org_id}")
@@ -69,7 +71,7 @@ async def main() -> None:
         if org:
             org_id = org["id"]
         else:
-            org = Organization(name=ORG_NAME)
+            org = Organization(name=ORG_NAME, slug=org_slug)
             await db.organizations.insert_one(org.model_dump())
             org_id = org.id
         print(f"✓ Organization ready — id={org_id}")
