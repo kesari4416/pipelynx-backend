@@ -2,13 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Dict, Any
+import asyncio
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
 from app.core.config import settings
-from app.db.mongodb import connect_mongodb, close_mongodb
+from app.db.mongodb import connect_mongodb, close_mongodb, mongo_conn
 from app.db.redis import connect_redis, close_redis
+from app.services.polling_service import polling_loop
 
 # Import API routers
 from app.api.v1 import auth, organizations, pipelines, webhooks, runs, metrics, ai, alerts, admin, billing
@@ -45,11 +47,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("TimescaleDB feature flag is OFF — running MongoDB-only mode")
 
     logger.info("Pipelynx API started successfully!")
-    
+
+    # Background polling task — pulls runs from pull-mode integrations every 60s.
+    polling_task = asyncio.create_task(polling_loop(lambda: mongo_conn.db))
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Pipelynx API...")
+    polling_task.cancel()
+    try:
+        await polling_task
+    except asyncio.CancelledError:
+        pass
     await close_mongodb()
     await close_redis()
     logger.info("Pipelynx API shut down successfully!")

@@ -52,3 +52,4 @@ class IntegrationResponse(BaseModel):
     name: str
     is_active: bool
     created_at: datetime
+    config: Optional[Dict[str, Any]] = None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Dict, Any
 from datetime import datetime, timezone
@@ -13,6 +13,8 @@ from app.schemas.pipeline import (
 from app.models.mongodb import Pipeline, Integration
 from app.db.mongodb import get_mongodb
 from app.core.dependencies import get_current_active_user, get_current_org
+from app.services.setup_guides import build_setup_guide
+from app.services.polling_service import sync_integration
 
 router = APIRouter(prefix="/pipelines", tags=["Pipelines"])
 
@@ -54,6 +56,76 @@ async def list_integrations(
         {"_id": 0}
     ).to_list(100)
     return [IntegrationResponse(**integration) for integration in integrations]
+
+
+@router.get("/integrations/{integration_id}/setup-guide")
+async def integration_setup_guide(
+    integration_id: str,
+    request: Request,
+    org: dict = Depends(get_current_org),
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+) -> Dict[str, Any]:
+    """Return a structured, copy-paste setup guide for connecting this integration."""
+    integration = await db.integrations.find_one(
+        {"id": integration_id, "organization_id": org["id"]},
+        {"_id": 0},
+    )
+    if not integration:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found")
+    # Honour the X-Forwarded-Proto/Host that the K8s ingress / load balancer sets,
+    # so the webhook URL shown to the user is the public domain — not localhost.
+    fwd_proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    fwd_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    base_url = f"{fwd_proto}://{fwd_host}" if fwd_host else None
+    guide = build_setup_guide(integration, base_url=base_url)
+    guide["integration"] = {
+        "id": integration["id"],
+        "type": integration["type"],
+        "name": integration["name"],
+        "config": {
+            "connection_mode": (integration.get("config") or {}).get("connection_mode", "webhook"),
+            "last_synced_at": (integration.get("config") or {}).get("last_synced_at"),
+            "last_sync_count": (integration.get("config") or {}).get("last_sync_count"),
+        },
+    }
+    return guide
+
+
+@router.post("/integrations/{integration_id}/sync")
+async def integration_sync_now(
+    integration_id: str,
+    org: dict = Depends(get_current_org),
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+) -> Dict[str, Any]:
+    """Manually trigger a one-shot poll of the integration (pull-mode only)."""
+    integration = await db.integrations.find_one(
+        {"id": integration_id, "organization_id": org["id"]},
+        {"_id": 0},
+    )
+    if not integration:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found")
+    if (integration.get("config") or {}).get("connection_mode") != "pull":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This integration is in webhook mode. Configure pull mode (with an API token + repositories/jobs) to use Sync.",
+        )
+    return await sync_integration(db, integration)
+
+
+@router.delete("/integrations/{integration_id}")
+async def delete_integration(
+    integration_id: str,
+    current_user: dict = Depends(get_current_active_user),
+    org: dict = Depends(get_current_org),
+    db: AsyncIOMotorDatabase = Depends(get_mongodb),
+) -> Dict[str, Any]:
+    """Delete an integration (org-scoped)."""
+    result = await db.integrations.delete_one(
+        {"id": integration_id, "organization_id": org["id"]},
+    )
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Integration not found")
+    return {"status": "deleted", "id": integration_id}
 
 # ============ Pipelines ============
 

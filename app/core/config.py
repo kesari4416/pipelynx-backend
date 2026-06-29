@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     
     # Alerting / Notifications
     SMTP_FROM_EMAIL: str = os.getenv("SMTP_FROM_EMAIL", "alerts@pipelynx.io")
+    SMTP_FROM_NAME: str = os.getenv("SMTP_FROM_NAME", "Pipelynx Alerts")
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in {"1", "true", "yes"}
     
     # Note: Removed Config class as model_config is used instead
 

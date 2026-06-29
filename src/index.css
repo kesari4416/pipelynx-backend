@@ -1,0 +1,313 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Outfit (display) + Manrope (body) for public marketing surfaces. */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Manrope:wght@300;400;500;600;700&display=swap");
+
+@layer base {
+    :root {
+        /* Pipelynx Dark Swiss/Brutalist Theme — used by the authenticated app shell */
+        --background: 0 0% 4%;
+        --foreground: 0 0% 93%;
+        --card: 0 0% 7%;
+        --card-foreground: 0 0% 93%;
+        --popover: 0 0% 7%;
+        --popover-foreground: 0 0% 93%;
+        --primary: 0 0% 93%;
+        --primary-foreground: 0 0% 9%;
+        --secondary: 0 0% 12%;
+        --secondary-foreground: 0 0% 93%;
+        --muted: 0 0% 12%;
+        --muted-foreground: 0 0% 65%;
+        --accent: 0 0% 12%;
+        --accent-foreground: 0 0% 93%;
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 0 0% 15%;
+        --input: 0 0% 15%;
+        --ring: 0 0% 83%;
+        --radius: 0.3rem;
+
+        /* Chart palette - desaturated technical */
+        --chart-1: 142 70% 50%; /* success green */
+        --chart-2: 0 84% 60%;   /* failure red */
+        --chart-3: 217 91% 60%; /* running blue */
+        --chart-4: 38 92% 50%;  /* queued amber */
+        --chart-5: 0 0% 65%;    /* neutral grey */
+    }
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+    html {
+        background: hsl(var(--background));
+        color-scheme: dark;
+    }
+    body {
+        margin: 0;
+        font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system,
+            BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-feature-settings: "ss01", "ss02", "cv11";
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: hsl(var(--background));
+        color: hsl(var(--foreground));
+        min-height: 100vh;
+    }
+    code, pre, .font-mono {
+        font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+            Consolas, "Courier New", monospace;
+    }
+
+    /* Custom selection */
+    ::selection {
+        background: hsl(var(--foreground));
+        color: hsl(var(--background));
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: hsl(var(--background));
+    }
+    ::-webkit-scrollbar-thumb {
+        background: hsl(var(--border));
+        border-radius: 0;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--muted-foreground));
+    }
+}
+
+@layer utilities {
+    /* Subtle grid background for hero sections */
+    .bg-grid {
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 32px 32px;
+    }
+
+    /* Crystal Glass header — dark app variant */
+    .glass-header {
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Pipelynx specific text utilities */
+    .text-label {
+        @apply text-xs uppercase tracking-[0.15em] font-medium text-muted-foreground;
+    }
+
+    .text-metric {
+        @apply text-4xl font-light tracking-tighter font-mono;
+    }
+
+    /* Pulse animation for "running" status */
+    @keyframes status-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+    .animate-status-pulse {
+        animation: status-pulse 1.6s ease-in-out infinite;
+    }
+
+    /* Fade-in for content loading */
+    @keyframes fade-in {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+        animation: fade-in 0.3s ease-out forwards;
+    }
+
+    /* Shimmer for live progress bars */
+    @keyframes shimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+    }
+    .animate-shimmer {
+        animation: shimmer 2.2s linear infinite;
+    }
+}
+
+/* =====================================================================
+   PUBLIC MARKETING THEME — Light Glassmorphism (Aero Glass Tech Twist)
+   Activated only on pages wrapped in `.public-theme` (PublicShell + AppShell).
+   Overrides every theme CSS variable so existing components auto-adapt.
+   ===================================================================== */
+.public-theme {
+    /* Tailwind tokens — light variant */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 234 89% 63%;            /* indigo-500 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;   /* slate-500 */
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;             /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 234 89% 63%;
+
+    color-scheme: light;
+    color: #0f172a;
+    font-family: "Manrope", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f8fafc;
+    background-image:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(99, 102, 241, 0.18), transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 10%, rgba(168, 85, 247, 0.15), transparent 65%),
+        radial-gradient(ellipse 50% 40% at 50% 100%, rgba(59, 130, 246, 0.10), transparent 70%);
+    min-height: 100vh;
+}
+
+/* Light-mode override for the glass-header utility used inside AppShell */
+.public-theme .glass-header {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* Light-mode subtle grid */
+.public-theme .bg-grid {
+    background-image:
+        linear-gradient(rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+}
+
+.public-theme .font-display {
+    font-family: "Outfit", ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.02em;
+}
+
+.public-theme .font-body {
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Glass surfaces */
+.glass-card {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+        0 10px 30px -10px rgba(59, 130, 246, 0.08),
+        0 1px 0 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+.glass-card-strong {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(28px) saturate(200%);
+    -webkit-backdrop-filter: blur(28px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+        0 20px 50px -15px rgba(99, 102, 241, 0.12),
+        0 1px 0 0 rgba(255, 255, 255, 0.9) inset;
+}
+
+.glass-nav {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+/* Gradient text & buttons */
+.gradient-text {
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 50%, #db2777 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.btn-gradient {
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    color: #ffffff;
+    box-shadow: 0 8px 20px -4px rgba(99, 102, 241, 0.4);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.btn-gradient:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 12px 30px -6px rgba(99, 102, 241, 0.55);
+}
+
+.btn-glass {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    color: #1e293b;
+    transition: all 200ms ease;
+}
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateY(-1px);
+}
+
+/* Floating orb decorations — drop into hero sections */
+.orb {
+    position: absolute;
+    border-radius: 9999px;
+    filter: blur(64px);
+    opacity: 0.5;
+    pointer-events: none;
+    animation: float-slow 8s ease-in-out infinite;
+}
+.orb-blue { background: #60a5fa; }
+.orb-violet { background: #a78bfa; }
+.orb-pink { background: #f0abfc; }
+
+/* Mesh dotted grid for public sections */
+.mesh-dots {
+    background-image: radial-gradient(rgba(99, 102, 241, 0.18) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+
+/* Public page typography scale */
+.public-theme h1, .public-theme h2, .public-theme h3 {
+    font-family: "Outfit", ui-sans-serif, sans-serif;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+}
+.public-theme p { color: #475569; }
+
+/* Hover lift on cards */
+.lift-on-hover {
+    transition: transform 300ms ease, box-shadow 300ms ease;
+}
+.lift-on-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.18);
+}
+
+/* Soft pill badges */
+.pill-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
+    background: rgba(99, 102, 241, 0.1);
+    color: #4f46e5;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+/* Public-shell scrollbar light theme */
+.public-theme ::-webkit-scrollbar-track { background: #f8fafc; }
+.public-theme ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+.public-theme ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+.public-theme ::selection { background: rgba(99, 102, 241, 0.2); color: #1e1b4b; }
